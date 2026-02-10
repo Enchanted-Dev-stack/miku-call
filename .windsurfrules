@@ -1,0 +1,99 @@
+# Windsurf Rules for Miku Call
+
+## Project Context
+This is Miku Call - a real-time voice calling app that lets an AI assistant (Miku) call the user for voice conversations. Built for Adarsh.
+
+## Tech Stack
+- **Backend:** Python + FastAPI + WebSocket
+- **Mobile:** Flutter (iOS first, Android later)
+- **AI:** OpenAI Whisper (STT), Claude Haiku 4.5 (conversation), ElevenLabs Jessica voice (TTS)
+- **Infra:** Firebase (push notifications), ngrok (tunneling)
+
+## Project Goal
+Create a free, real-time voice calling app where:
+1. Miku can call Adarsh when needed (critical alerts, reminders, etc.)
+2. Real-time bidirectional voice conversation
+3. Jessica voice (cute anime style, bilingual Hindi/English)
+4. Zero ongoing costs (uses existing API keys)
+
+## Code Style
+- **Python:** Clean, modular, async/await for everything
+- **Dart/Flutter:** Material Design, clean state management
+- **Comments:** Only when necessary, code should be self-documenting
+- **Naming:** Descriptive, snake_case (Python), camelCase (Dart)
+
+## Key Files
+- `server/main.py` - WebSocket server, main entry point
+- `server/whisper_stt.py` - Speech recognition
+- `server/claude_brain.py` - AI conversation brain
+- `server/jessica_tts.py` - Voice synthesis
+- `mobile/miku_call/lib/main.dart` - Flutter app entry
+- `mobile/miku_call/lib/services/call_service.dart` - WebSocket client + audio
+
+## Current Status (MVP Complete)
+✅ Server backend built
+✅ Flutter app scaffold
+✅ WebSocket communication
+✅ AI pipeline (STT → LLM → TTS)
+🔄 Needs: Firebase config, testing, bug fixes
+
+## Known Issues (Priority Order)
+1. **Audio playback in Flutter** - Just logs, doesn't actually play (CRITICAL)
+2. **Firebase setup** - Needs GoogleService-Info.plist
+3. **Whisper dependency** - Installation failed (pkg_resources error)
+4. **Server URL** - Hardcoded localhost, needs dynamic config
+5. **Background mode** - App must be open to receive calls
+
+## Next Steps (For You)
+1. Fix audio playback (use just_audio properly)
+2. Add Firebase config
+3. Fix Whisper installation or use alternative (faster-whisper)
+4. Test full call flow
+5. Add background mode (CallKit for iOS)
+
+## Development Guidelines
+- Keep responses short for real-time voice (1-3 sentences)
+- Use async/await everywhere
+- Handle errors gracefully (calls shouldn't crash)
+- Log everything (helps debugging)
+- Test on real device (simulator audio is unreliable)
+
+## API Keys (Already Configured)
+- ElevenLabs: 4-key rotation via sag-rotate
+- Claude: ANTHROPIC_API_KEY in environment
+- Firebase: Needs setup
+
+## Testing Commands
+**Server:**
+```bash
+cd server && ./start.sh
+```
+
+**App:**
+```bash
+cd mobile/miku_call && flutter run
+```
+
+**Health Check:**
+```bash
+curl http://localhost:8080/
+```
+
+## Important Notes
+- iOS only for now (Android later)
+- Target: iPhone with iOS 14+
+- Uses existing Miku infrastructure (sag-rotate, Jessica voice)
+- Must work offline (server runs on local Mac)
+- Real-time is critical (low latency matters)
+
+## Architecture Decisions
+- WebSocket over REST: Real-time bidirectional communication needed
+- Haiku 4.5 over Opus: Speed matters more than sophistication for voice
+- Local Whisper over API: Free + privacy + faster
+- Jessica via sag-rotate: Already set up, 4-key rotation
+
+## References
+- README.md: Setup instructions
+- PROJECT_STATUS.md: Current state, todos
+- server/requirements.txt: Python dependencies
+- mobile/miku_call/pubspec.yaml: Flutter dependencies
