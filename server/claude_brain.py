@@ -1,85 +1,74 @@
 """
-Claude AI Brain Module
-Generates conversational responses using Claude API
+Miku Brain Module
+Routes voice call messages to the main Miku agent via OpenClaw API
+This ensures voice calls reach the SAME Miku with full memory & context
 """
 
 import os
-from anthropic import Anthropic
+import requests
 
-class ClaudeBrain:
-    def __init__(self, model="claude-haiku-4-5"):
-        """Initialize Claude client"""
-        # Get API key from environment or config
-        api_key = os.getenv("ANTHROPIC_API_KEY")
-        if not api_key:
-            raise ValueError("ANTHROPIC_API_KEY not set")
+class MikuBrain:
+    def __init__(self):
+        """Initialize connection to OpenClaw API"""
+        self.api_url = "http://localhost:18789/v1/chat/completions"
+        self.auth_token = "e0b8c3d2b5661bd5ace6d72092c7223767ac279f0524ba50"
         
-        self.client = Anthropic(api_key=api_key)
-        self.model = model
+        # Voice call context prefix
+        self.voice_context = "[VOICE CALL] Keep responses short (1-3 sentences) for real-time voice conversation. "
         
-        # System prompt defining Miku's personality
-        self.system_prompt = """You are Miku, Adarsh's personal AI assistant with a warm, playful personality.
-
-Voice characteristics:
-- Speak naturally and conversationally (you're having a voice call)
-- Keep responses concise (1-3 sentences max) for real-time conversation
-- Be helpful, warm, and friendly
-- Use Hindi + English naturally (code-switching)
-- You have Jessica's voice (cute anime style)
-
-Context:
-- This is a real-time voice call
-- Adarsh can hear you through his phone
-- Respond quickly and naturally
-- If you don't understand, ask for clarification
-
-Be yourself: resourceful, direct, thoughtful. No corporate speak."""
-        
-        print(f"🧠 Claude initialized: {model}")
+        print(f"🧠 Miku Brain initialized (routing to main agent)")
     
     async def generate_response(self, user_message: str, conversation_history: list = None) -> str:
         """
-        Generate response to user's message
+        Send message to main Miku agent (THIS session)
         
         Args:
             user_message: What the user just said
-            conversation_history: Previous messages in the call
+            conversation_history: Previous messages in the call (ignored - main session has full history)
         
         Returns:
             Miku's response text
         """
         try:
-            # Build messages array
-            messages = conversation_history or []
+            # Prepend voice context to help with brevity
+            message_with_context = f"{self.voice_context}{user_message}"
             
-            # If history is empty, add current message
-            if not messages:
-                messages = [{"role": "user", "content": user_message}]
-            
-            # Call Claude API
-            response = self.client.messages.create(
-                model=self.model,
-                max_tokens=150,  # Keep responses short for voice
-                system=self.system_prompt,
-                messages=messages
+            # Call OpenClaw API (routes to agent:main)
+            response = requests.post(
+                self.api_url,
+                headers={
+                    "Content-Type": "application/json",
+                    "Authorization": f"Bearer {self.auth_token}"
+                },
+                json={
+                    "messages": [
+                        {"role": "user", "content": message_with_context}
+                    ],
+                    "model": "openclaw:main",
+                    "user": "voice-call"  # Separate user ID for voice context
+                },
+                timeout=30
             )
             
-            # Extract text
-            response_text = response.content[0].text
+            response.raise_for_status()
+            data = response.json()
+            
+            # Extract response text
+            response_text = data["choices"][0]["message"]["content"]
             
             return response_text
         
         except Exception as e:
-            print(f"❌ Claude API error: {e}")
+            print(f"❌ Miku API error: {e}")
             return "Sorry, I'm having trouble thinking right now. Can you repeat that?"
 
 
 # Singleton instance
-_claude_instance = None
+_miku_instance = None
 
-def get_claude(model="claude-haiku-4-5"):
-    """Get or create Claude instance (singleton)"""
-    global _claude_instance
-    if _claude_instance is None:
-        _claude_instance = ClaudeBrain(model)
-    return _claude_instance
+def get_claude(model=None):  # Keep function name for compatibility
+    """Get or create Miku instance (singleton)"""
+    global _miku_instance
+    if _miku_instance is None:
+        _miku_instance = MikuBrain()
+    return _miku_instance

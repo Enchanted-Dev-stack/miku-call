@@ -8,7 +8,7 @@ python-multipart==0.0.20
 
 # AI & Speech
 faster-whisper==1.1.0
-anthropic==0.46.0
+requests==2.32.3
 
 # Audio processing
 pydub==0.25.1

@@ -2,17 +2,29 @@
 
 AI-powered voice calling app that lets Miku (your AI assistant) call you for real-time conversations.
 
+**Key Feature:** Voice calls reach the SAME Miku you chat with on Telegram - with full memory, context, and personality!
+
 ## Architecture
 
 ```
-Mobile App (iOS) ←─WebSocket─→ Server (Mac)
-        ↓                           ↓
-    Microphone              ┌───────┴───────┐
-        ↓                   ↓       ↓       ↓
-    Audio Stream        Whisper  Claude  ElevenLabs
-        ↓                   ↓       ↓       ↓
-    Speaker            ←─Audio─Text─Response─Audio─
+Mobile App (iOS) ←─WebSocket─→ Server (Mac) ←─HTTP API─→ OpenClaw (Miku Main Agent)
+        ↓                           ↓                            ↓
+    Microphone              ┌───────┴───────┐              Full Memory
+        ↓                   ↓               ↓              & Context
+    Audio Stream        Whisper         ElevenLabs
+        ↓                   ↓               ↓
+    Speaker            ←─Audio─Text────Audio─
+                                      ↑
+                              Miku's Response
+                         (same agent, remembers you)
 ```
+
+**Why this matters:**
+- ✅ Voice calls = talking to YOUR Miku (not a generic AI)
+- ✅ Remembers previous conversations (MEMORY.md)
+- ✅ Knows your preferences, context, projects
+- ✅ Same personality across Telegram & voice
+- ✅ No separate API key needed
 
 ## Features
 
@@ -32,11 +44,13 @@ cd ~/.openclaw/workspace/miku-call-app/server
 pip3 install -r requirements.txt --break-system-packages
 ```
 
-#### b. Set environment variables
-```bash
-# Add to ~/.zshrc or create .env file
-export ANTHROPIC_API_KEY="your_claude_api_key_here"
-```
+#### b. Configuration (No API key needed!)
+The server routes to your main OpenClaw agent, so it uses your existing OAuth setup.
+
+**Requirements:**
+- OpenClaw running (`openclaw gateway status`)
+- Chat completions endpoint enabled (already done)
+- Server runs on same machine as OpenClaw (localhost communication)
 
 #### c. Start the server
 ```bash
