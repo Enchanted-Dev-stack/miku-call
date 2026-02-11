@@ -1,3 +1,4 @@
+import 'dart:async';
 import 'package:flutter/material.dart';
 import '../services/call_service.dart';
 
@@ -17,13 +18,14 @@ class _CallScreenState extends State<CallScreen> {
   String _callStatus = 'Connecting...';
   final List<TranscriptMessage> _transcript = [];
   final ScrollController _scrollController = ScrollController();
+  StreamSubscription<TranscriptMessage>? _transcriptSub;
 
   @override
   void initState() {
     super.initState();
     
     // Listen to transcript stream
-    callService.transcriptStream.listen((message) {
+    _transcriptSub = callService.transcriptStream.listen((message) {
       setState(() {
         _transcript.add(message);
       });
@@ -75,6 +77,8 @@ class _CallScreenState extends State<CallScreen> {
 
   @override
   void dispose() {
+    _transcriptSub?.cancel();
+    _scrollController.dispose();
     callService.disconnect();
     super.dispose();
   }
