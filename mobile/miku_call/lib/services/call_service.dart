@@ -1,6 +1,7 @@
 import 'dart:async';
 import 'dart:convert';
 import 'dart:io';
+import 'dart:typed_data';
 import 'package:flutter/foundation.dart';
 import 'package:web_socket_channel/web_socket_channel.dart';
 import 'package:record/record.dart';
@@ -24,8 +25,16 @@ class CallService {
   // Audio playback
   final _audioPlayer = AudioPlayer();
   
+  // Audio buffer for accumulating PCM chunks before sending
+  final List<int> _audioBuffer = [];
+  Timer? _sendTimer;
+  static const int _sendIntervalMs = 2000; // Send every 2 seconds
+  static const int _sampleRate = 16000;
+  static const int _numChannels = 1;
+  static const int _bitsPerSample = 16;
+  
   // Server URL - Mac's local IP on the network
-  static const String _serverUrl = 'ws://192.168.1.13:8000/call/connect';
+  static const String _serverUrl = 'ws://192.168.1.13:8080/call/connect';
   
   Future<void> initialize() async {
     // Request microphone permission
@@ -36,10 +45,9 @@ class CallService {
     if (_isConnected) return;
     
     try {
-      // Connect WebSocket
       _channel = WebSocketChannel.connect(Uri.parse(_serverUrl));
+      await _channel!.ready;
       
-      // Listen for messages from server
       _channel!.stream.listen(
         _handleServerMessage,
         onError: (error) {
@@ -49,24 +57,92 @@ class CallService {
         onDone: () {
           print('WebSocket closed');
           _isConnected = false;
+          _stopSendTimer();
         },
       );
       
       _isConnected = true;
-      
-      // Start recording after connection
       await _startRecording();
+      _startSendTimer();
       
     } catch (e) {
       print('Connection error: $e');
+      _isConnected = false;
       rethrow;
     }
   }
 
   Future<void> disconnect() async {
+    _stopSendTimer();
+    _audioBuffer.clear();
     await _stopRecording();
     await _channel?.sink.close();
     _isConnected = false;
+  }
+
+  void _startSendTimer() {
+    _sendTimer = Timer.periodic(
+      const Duration(milliseconds: _sendIntervalMs),
+      (_) => _flushAudioBuffer(),
+    );
+  }
+
+  void _stopSendTimer() {
+    _sendTimer?.cancel();
+    _sendTimer = null;
+  }
+
+  void _flushAudioBuffer() {
+    if (_audioBuffer.isEmpty || !_isConnected) return;
+    
+    final pcmData = Uint8List.fromList(_audioBuffer);
+    _audioBuffer.clear();
+    
+    // Wrap PCM in WAV header so server receives valid WAV
+    final wavData = _addWavHeader(pcmData);
+    _sendAudioToServer(wavData);
+  }
+
+  Uint8List _addWavHeader(Uint8List pcmData) {
+    final dataSize = pcmData.length;
+    final fileSize = 36 + dataSize;
+    final byteRate = _sampleRate * _numChannels * (_bitsPerSample ~/ 8);
+    final blockAlign = _numChannels * (_bitsPerSample ~/ 8);
+    
+    final header = ByteData(44);
+    // RIFF header
+    header.setUint8(0, 0x52); // R
+    header.setUint8(1, 0x49); // I
+    header.setUint8(2, 0x46); // F
+    header.setUint8(3, 0x46); // F
+    header.setUint32(4, fileSize, Endian.little);
+    header.setUint8(8, 0x57);  // W
+    header.setUint8(9, 0x41);  // A
+    header.setUint8(10, 0x56); // V
+    header.setUint8(11, 0x45); // E
+    // fmt chunk
+    header.setUint8(12, 0x66); // f
+    header.setUint8(13, 0x6D); // m
+    header.setUint8(14, 0x74); // t
+    header.setUint8(15, 0x20); // (space)
+    header.setUint32(16, 16, Endian.little); // chunk size
+    header.setUint16(20, 1, Endian.little);  // PCM format
+    header.setUint16(22, _numChannels, Endian.little);
+    header.setUint32(24, _sampleRate, Endian.little);
+    header.setUint32(28, byteRate, Endian.little);
+    header.setUint16(32, blockAlign, Endian.little);
+    header.setUint16(34, _bitsPerSample, Endian.little);
+    // data chunk
+    header.setUint8(36, 0x64); // d
+    header.setUint8(37, 0x61); // a
+    header.setUint8(38, 0x74); // t
+    header.setUint8(39, 0x61); // a
+    header.setUint32(40, dataSize, Endian.little);
+    
+    final wav = Uint8List(44 + dataSize);
+    wav.setRange(0, 44, header.buffer.asUint8List());
+    wav.setRange(44, 44 + dataSize, pcmData);
+    return wav;
   }
 
   Future<void> _startRecording() async {
@@ -78,7 +154,7 @@ class CallService {
         // Start recording (stream mode for real-time)
         final stream = await _audioRecorder.startStream(
           const RecordConfig(
-            encoder: AudioEncoder.wav,
+            encoder: AudioEncoder.pcm16bits,
             sampleRate: 16000,
             numChannels: 1,
           ),
@@ -86,10 +162,10 @@ class CallService {
         
         _isRecording = true;
         
-        // Send audio chunks to server
+        // Accumulate audio chunks in buffer
         stream.listen((audioData) {
           if (!_isMuted && _isConnected) {
-            _sendAudioToServer(audioData);
+            _audioBuffer.addAll(audioData);
           }
         });
       }
@@ -165,7 +241,7 @@ class CallService {
       // Clean up after playing
       _audioPlayer.processingStateStream.listen((state) {
         if (state == ProcessingState.completed) {
-          tempFile.delete().catchError((e) => print('Temp file cleanup error: $e'));
+          tempFile.delete().ignore();
         }
       });
     } catch (e) {
