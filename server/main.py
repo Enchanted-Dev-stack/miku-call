@@ -59,17 +59,22 @@ class CallSession:
             audio_response = await self.synthesize_speech(response_text)
             
             # Step 4: Send audio back to client
-            await self.websocket.send_json({
-                "type": "audio",
-                "data": base64.b64encode(audio_response).decode('utf-8')
-            })
+            if self.is_active:
+                await self.websocket.send_json({
+                    "type": "audio",
+                    "data": base64.b64encode(audio_response).decode('utf-8')
+                })
             
         except Exception as e:
             print(f"❌ Error processing audio: {e}")
-            await self.websocket.send_json({
-                "type": "error",
-                "message": str(e)
-            })
+            if self.is_active:
+                try:
+                    await self.websocket.send_json({
+                        "type": "error",
+                        "message": str(e)
+                    })
+                except Exception:
+                    pass
     
     async def transcribe_audio(self, audio_data: bytes) -> Optional[str]:
         """Transcribe audio using Whisper"""
@@ -151,9 +156,13 @@ async def websocket_endpoint(websocket: WebSocket):
     
     finally:
         # Clean up
+        session.is_active = False
         if user_id in active_calls:
             del active_calls[user_id]
-        await websocket.close()
+        try:
+            await websocket.close()
+        except Exception:
+            pass
 
 
 if __name__ == "__main__":
