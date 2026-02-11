@@ -25,7 +25,7 @@ class CallService {
   final _audioPlayer = AudioPlayer();
   
   // Server URL - Mac's local IP on the network
-  static const String _serverUrl = 'ws://192.168.1.13:8080/call/connect';
+  static const String _serverUrl = 'ws://192.168.1.13:8000/call/connect';
   
   Future<void> initialize() async {
     // Request microphone permission
