@@ -30,13 +30,22 @@ class WhisperSTT:
             Transcribed text
         """
         try:
+            # Skip if audio is too small (likely silence)
+            if len(audio_data) < 1000:
+                return ""
+            
             # Save audio to temp file (Whisper needs file input)
             with tempfile.NamedTemporaryFile(suffix=".wav", delete=False) as temp_audio:
                 temp_audio.write(audio_data)
                 temp_path = temp_audio.name
             
-            # Transcribe
-            segments, info = self.model.transcribe(temp_path, language="en")
+            # Transcribe with VAD filter to reduce hallucinations
+            segments, info = self.model.transcribe(
+                temp_path, 
+                language="en",
+                vad_filter=True,  # Filter out non-speech
+                condition_on_previous_text=False  # Reduce hallucinations
+            )
             text = " ".join([segment.text for segment in segments]).strip()
             
             # Cleanup

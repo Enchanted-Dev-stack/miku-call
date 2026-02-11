@@ -42,12 +42,18 @@ class CallSession:
     async def process_audio(self, audio_data: bytes):
         """Process incoming audio: STT -> LLM -> TTS -> send back"""
         try:
+            print(f"🎤 Received audio: {len(audio_data)} bytes")
+            
             # Step 1: Speech-to-Text (Whisper)
             text = await self.transcribe_audio(audio_data)
-            if not text:
+            print(f"📝 Whisper output: '{text}' (length: {len(text)})")
+            
+            # Skip if empty or too short (likely silence/noise)
+            if not text or len(text.strip()) < 3:
+                print("⏭️  Skipping empty/short transcription")
                 return
             
-            print(f"📝 User said: {text}")
+            print(f"✅ User said: {text}")
             self.conversation_history.append({"role": "user", "content": text})
             
             # Step 2: Generate response (Claude)
