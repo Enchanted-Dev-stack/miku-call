@@ -24,8 +24,8 @@ class CallService {
   // Audio playback
   final _audioPlayer = AudioPlayer();
   
-  // Server URL (replace with your Mac's local IP or ngrok URL)
-  static const String _serverUrl = 'ws://localhost:8080/call/connect';
+  // Server URL - Mac's local IP on the network
+  static const String _serverUrl = 'ws://192.168.1.13:8080/call/connect';
   
   Future<void> initialize() async {
     // Request microphone permission
