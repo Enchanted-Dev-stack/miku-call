@@ -3,7 +3,7 @@ Whisper Speech-to-Text Module
 Transcribes audio to text using OpenAI Whisper (local)
 """
 
-import whisper
+from faster_whisper import WhisperModel
 import tempfile
 import os
 from pathlib import Path
@@ -15,9 +15,9 @@ class WhisperSTT:
         Models: tiny, base, small, medium, large
         Larger = more accurate but slower
         """
-        print(f"🎙️ Loading Whisper model: {model_name}")
-        self.model = whisper.load_model(model_name)
-        print(f"✅ Whisper {model_name} loaded")
+        print(f"🎙️ Loading Faster Whisper model: {model_name}")
+        self.model = WhisperModel(model_name, device="cpu", compute_type="int8")
+        print(f"✅ Faster Whisper {model_name} loaded")
     
     async def transcribe(self, audio_data: bytes) -> str:
         """
@@ -36,8 +36,8 @@ class WhisperSTT:
                 temp_path = temp_audio.name
             
             # Transcribe
-            result = self.model.transcribe(temp_path, language="en")
-            text = result["text"].strip()
+            segments, info = self.model.transcribe(temp_path, language="en")
+            text = " ".join([segment.text for segment in segments]).strip()
             
             # Cleanup
             os.unlink(temp_path)

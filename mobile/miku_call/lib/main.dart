@@ -9,14 +9,20 @@ Future<void> _firebaseMessagingBackgroundHandler(RemoteMessage message) async {
   print('Background message received: ${message.notification?.title}');
 }
 
+bool _firebaseInitialized = false;
+
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
   
-  // Initialize Firebase
-  await Firebase.initializeApp();
-  
-  // Setup background message handler
-  FirebaseMessaging.onBackgroundMessage(_firebaseMessagingBackgroundHandler);
+  // Initialize Firebase (gracefully handle missing config)
+  try {
+    await Firebase.initializeApp();
+    FirebaseMessaging.onBackgroundMessage(_firebaseMessagingBackgroundHandler);
+    _firebaseInitialized = true;
+    print('✅ Firebase initialized');
+  } catch (e) {
+    print('⚠️ Firebase not configured, skipping: $e');
+  }
   
   // Initialize call service
   await CallService.instance.initialize();
@@ -54,25 +60,28 @@ class _HomePageState extends State<HomePage> {
   @override
   void initState() {
     super.initState();
-    _setupFirebase();
-    _listenForIncomingCalls();
+    if (_firebaseInitialized) {
+      _setupFirebase();
+      _listenForIncomingCalls();
+    }
   }
 
   Future<void> _setupFirebase() async {
-    // Get FCM token
-    String? token = await FirebaseMessaging.instance.getToken();
-    setState(() {
-      _fcmToken = token;
-    });
-    print('FCM Token: $token');
+    try {
+      String? token = await FirebaseMessaging.instance.getToken();
+      setState(() {
+        _fcmToken = token;
+      });
+      print('FCM Token: $token');
+    } catch (e) {
+      print('⚠️ FCM token error: $e');
+    }
   }
 
   void _listenForIncomingCalls() {
-    // Listen for foreground messages (incoming calls)
     FirebaseMessaging.onMessage.listen((RemoteMessage message) {
       print('Incoming call notification: ${message.notification?.title}');
       
-      // Show incoming call screen
       if (message.data['type'] == 'incoming_call') {
         Navigator.push(
           context,

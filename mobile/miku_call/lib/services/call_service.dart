@@ -1,10 +1,12 @@
 import 'dart:async';
 import 'dart:convert';
+import 'dart:io';
 import 'package:flutter/foundation.dart';
 import 'package:web_socket_channel/web_socket_channel.dart';
 import 'package:record/record.dart';
 import 'package:just_audio/just_audio.dart';
 import 'package:permission_handler/permission_handler.dart';
+import 'package:path_provider/path_provider.dart';
 
 class CallService {
   static final CallService instance = CallService._();
@@ -149,13 +151,23 @@ class CallService {
 
   Future<void> _playAudio(Uint8List audioData) async {
     try {
-      // Save audio to temp file and play it
-      // For now, using AudioPlayer with bytes
-      // TODO: Implement proper audio playback from bytes
       print('Received audio from Miku: ${audioData.length} bytes');
       
-      // You could use setAudioSource with a custom AudioSource here
-      // For simplicity, we'll just log for now
+      // Save to temp file
+      final tempDir = await getTemporaryDirectory();
+      final tempFile = File('${tempDir.path}/response_${DateTime.now().millisecondsSinceEpoch}.mp3');
+      await tempFile.writeAsBytes(audioData);
+      
+      // Play using just_audio
+      await _audioPlayer.setFilePath(tempFile.path);
+      await _audioPlayer.play();
+      
+      // Clean up after playing
+      _audioPlayer.processingStateStream.listen((state) {
+        if (state == ProcessingState.completed) {
+          tempFile.delete().catchError((e) => print('Temp file cleanup error: $e'));
+        }
+      });
     } catch (e) {
       print('Audio playback error: $e');
     }
