@@ -15,10 +15,30 @@ class _CallScreenState extends State<CallScreen> {
   bool _isConnected = false;
   bool _isMuted = false;
   String _callStatus = 'Connecting...';
+  final List<TranscriptMessage> _transcript = [];
+  final ScrollController _scrollController = ScrollController();
 
   @override
   void initState() {
     super.initState();
+    
+    // Listen to transcript stream
+    callService.transcriptStream.listen((message) {
+      setState(() {
+        _transcript.add(message);
+      });
+      // Auto-scroll to bottom
+      Future.delayed(const Duration(milliseconds: 100), () {
+        if (_scrollController.hasClients) {
+          _scrollController.animateTo(
+            _scrollController.position.maxScrollExtent,
+            duration: const Duration(milliseconds: 300),
+            curve: Curves.easeOut,
+          );
+        }
+      });
+    });
+    
     if (!widget.isIncoming) {
       _startCall();
     }
@@ -131,6 +151,52 @@ class _CallScreenState extends State<CallScreen> {
                         ],
                       ),
                     ),
+                  // Transcript section
+                  if (_transcript.isNotEmpty) ...[
+                    const SizedBox(height: 30),
+                    Container(
+                      height: 200,
+                      margin: const EdgeInsets.symmetric(horizontal: 20),
+                      decoration: BoxDecoration(
+                        color: Colors.grey[900],
+                        borderRadius: BorderRadius.circular(15),
+                      ),
+                      child: ListView.builder(
+                        controller: _scrollController,
+                        padding: const EdgeInsets.all(12),
+                        itemCount: _transcript.length,
+                        itemBuilder: (context, index) {
+                          final msg = _transcript[index];
+                          final isUser = msg.role == 'user';
+                          return Padding(
+                            padding: const EdgeInsets.only(bottom: 12),
+                            child: Row(
+                              crossAxisAlignment: CrossAxisAlignment.start,
+                              children: [
+                                Text(
+                                  isUser ? 'You: ' : 'Miku: ',
+                                  style: TextStyle(
+                                    color: isUser ? Colors.blue : Colors.pink,
+                                    fontWeight: FontWeight.bold,
+                                    fontSize: 14,
+                                  ),
+                                ),
+                                Expanded(
+                                  child: Text(
+                                    msg.text,
+                                    style: const TextStyle(
+                                      color: Colors.white,
+                                      fontSize: 14,
+                                    ),
+                                  ),
+                                ),
+                              ],
+                            ),
+                          );
+                        },
+                      ),
+                    ),
+                  ],
                 ],
               ),
             ),

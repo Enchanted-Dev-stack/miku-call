@@ -9,6 +9,18 @@ import 'package:just_audio/just_audio.dart';
 import 'package:permission_handler/permission_handler.dart';
 import 'package:path_provider/path_provider.dart';
 
+class TranscriptMessage {
+  final String role;  // "user" or "assistant"
+  final String text;
+  final DateTime timestamp;
+  
+  TranscriptMessage({
+    required this.role,
+    required this.text,
+    required this.timestamp,
+  });
+}
+
 class CallService {
   static final CallService instance = CallService._();
   CallService._();
@@ -24,6 +36,10 @@ class CallService {
   
   // Audio playback
   final _audioPlayer = AudioPlayer();
+  
+  // Transcript stream
+  final _transcriptController = StreamController<TranscriptMessage>.broadcast();
+  Stream<TranscriptMessage> get transcriptStream => _transcriptController.stream;
   
   // Audio buffer for accumulating PCM chunks before sending
   final List<int> _audioBuffer = [];
@@ -204,6 +220,15 @@ class CallService {
       switch (data['type']) {
         case 'connected':
           print('Server connected: ${data['message']}');
+          break;
+        
+        case 'transcript':
+          // Received transcript (user speech or Miku's response)
+          _transcriptController.add(TranscriptMessage(
+            role: data['role'],
+            text: data['text'],
+            timestamp: DateTime.now(),
+          ));
           break;
         
         case 'audio':

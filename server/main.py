@@ -56,10 +56,26 @@ class CallSession:
             print(f"✅ User said: {text}")
             self.conversation_history.append({"role": "user", "content": text})
             
+            # Send transcript to client
+            if self.is_active:
+                await self.websocket.send_json({
+                    "type": "transcript",
+                    "role": "user",
+                    "text": text
+                })
+            
             # Step 2: Generate response (Claude)
             response_text = await self.generate_response(text)
             print(f"💬 Miku responds: {response_text}")
             self.conversation_history.append({"role": "assistant", "content": response_text})
+            
+            # Send transcript to client
+            if self.is_active:
+                await self.websocket.send_json({
+                    "type": "transcript",
+                    "role": "assistant",
+                    "text": response_text
+                })
             
             # Step 3: Text-to-Speech (ElevenLabs Jessica)
             audio_response = await self.synthesize_speech(response_text)
