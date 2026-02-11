@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:firebase_core/firebase_core.dart';
 import 'package:firebase_messaging/firebase_messaging.dart';
+import 'firebase_options.dart';
 import 'screens/call_screen.dart';
 import 'services/call_service.dart';
 
@@ -16,7 +17,9 @@ void main() async {
   
   // Initialize Firebase (gracefully handle missing config)
   try {
-    await Firebase.initializeApp();
+    await Firebase.initializeApp(
+      options: DefaultFirebaseOptions.currentPlatform,
+    );
     FirebaseMessaging.onBackgroundMessage(_firebaseMessagingBackgroundHandler);
     _firebaseInitialized = true;
     print('✅ Firebase initialized');
